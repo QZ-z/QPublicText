@@ -2,6 +2,7 @@
 
 我们先来看看什么是同步通讯和异步通讯。如图：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1686983181054-f2bcce85-1fce-412f-95cd-1ae829f8406f.png)
+
 解读：
 
 - 同步通讯：就如同打视频电话，双方的交互都是实时的。因此同一时刻你只能跟一个人打视频电话。
