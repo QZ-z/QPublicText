@@ -117,7 +117,6 @@
 | 消息延迟 | 微秒级 | 毫秒级 | 毫秒级 | 毫秒以内 |
 | 消息可靠性 | 高 | 一般 | 高 | 一般 |
 
-
 追求可用性：Kafka、 RocketMQ 、RabbitMQ
 追求可靠性：RabbitMQ、RocketMQ
 追求吞吐能力：RocketMQ、Kafka
@@ -161,11 +160,11 @@ RabbitMQ对应的架构如图：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687136827222-52374724-79c9-4738-b53f-653cc0805d22.png)
 其中包含几个概念：
 
-- `**publisher**`：生产者，也就是发送消息的一方
-- `**consumer**`：消费者，也就是消费消息的一方
-- `**queue**`：队列，存储消息。生产者投递的消息会暂存在消息队列中，等待消费者处理
-- `**exchange**`：交换机，负责消息路由。生产者发送的消息由交换机决定投递到哪个队列。
-- `**virtual host**`：虚拟主机，起到数据隔离的作用。每个虚拟主机相互独立，有各自的exchange、queue
+- `publisher`：生产者，也就是发送消息的一方
+- `consumer`：消费者，也就是消费消息的一方
+- `queue`：队列，存储消息。生产者投递的消息会暂存在消息队列中，等待消费者处理
+- `exchange`：交换机，负责消息路由。生产者发送的消息由交换机决定投递到哪个队列。
+- `virtual host`：虚拟主机，起到数据隔离的作用。每个虚拟主机相互独立，有各自的exchange、queue
 
 上述这些东西都可以在RabbitMQ的管理控制台来管理，下一节我们就一起来学习控制台的使用。
 
@@ -331,10 +330,7 @@ SpringAMQP提供了三个功能：
 - publisher直接发送消息到队列
 - 消费者监听并处理队列中的消息
 
-:::warning
-**注意**：这种模式一般测试使用，很少在生产中使用。
-:::
-
+:warning:**注意**：这种模式一般测试使用，很少在生产中使用。
 
 
 为了方便测试，我们现在控制台新建一个队列：simple.queue
@@ -659,6 +655,9 @@ Fanout，英文翻译是扇出，我觉得在MQ中叫广播更合适。
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689947064113-23e123ec-a601-4af4-a44f-70f7b4ef4063.png)
 然后绑定两个队列到交换机：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687173574481-792b9a3c-bcab-4f96-9d09-206cccdd1456.png)
+
+下边这个图是direct的，错位了？
+
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687182519270-885589ec-7f4a-492a-ab78-cddf109121cc.png)
 
 
@@ -758,7 +757,8 @@ public void testSendDirectExchange() {
 }
 ```
 由于使用的red这个key，所以两个消费者都收到了消息：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689948475987-05bab459-43b6-47ad-bbfc-faf9f50d776e.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687182883516-906024ce-6ade-4dcd-8b4e-2b0cfc1bd03a.png)
 我们再切换为blue这个key：
 
 ```java
@@ -773,7 +773,8 @@ public void testSendDirectExchange() {
 }
 ```
 你会发现，只有消费者1收到了消息：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687183148068-ad50ba76-0024-460b-9b24-3cf7a0fe172e.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687182898732-afba28a8-c57e-4ccb-a330-9e3315879b31.png)
 
 ### 3.6.4.总结
 描述下Direct交换机与Fanout交换机的差异？
@@ -801,7 +802,9 @@ public void testSendDirectExchange() {
 - `item.*`：只能匹配`item.spu`
 
 图示：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687182883516-906024ce-6ade-4dcd-8b4e-2b0cfc1bd03a.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687183148068-ad50ba76-0024-460b-9b24-3cf7a0fe172e.png)
+
 假如此时publisher发送的消息使用的`RoutingKey`共有四种：
 
 - `china.news `代表有中国的新闻消息；
@@ -820,7 +823,8 @@ public void testSendDirectExchange() {
 
 接下来，我们就按照上图所示，来演示一下Topic交换机的用法。
 首先，在控制台按照图示例子创建队列、交换机，并利用通配符绑定队列和交换机。此处步骤略。最终结果如下：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689945200636-5f4a823f-6f36-4088-9b67-7b9b3ae48079.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689948475987-05bab459-43b6-47ad-bbfc-faf9f50d776e.png)
 
 ### 3.7.2.消息发送
 在publisher服务的SpringAmqpTest类中添加测试方法：
@@ -865,13 +869,17 @@ public void listenTopicQueue2(String msg){
 ## 3.8.声明队列和交换机
 在之前我们都是基于RabbitMQ控制台来创建队列、交换机。但是在实际开发时，队列和交换机是程序员定义的，将来项目上线，又要交给运维去创建。那么程序员就需要把程序中运行的所有队列和交换机都写下来，交给运维。在这个过程中是很容易出现错误的。
 因此推荐的做法是由程序启动时检查队列和交换机是否存在，如果不存在自动创建。
+
 ### 3.8.1.基本API
 SpringAMQP提供了一个Queue类，用来创建队列：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687181804385-c500bc13-9f81-4071-ad8a-598fa5f57d97.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689945200636-5f4a823f-6f36-4088-9b67-7b9b3ae48079.png)
 
 SpringAMQP还提供了一个Exchange接口，来表示所有不同类型的交换机：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687182898732-afba28a8-c57e-4ccb-a330-9e3315879b31.png)
-![](assets/image-20210717165552676.png#id=c2Knj&originalType=binary&ratio=1&rotation=0&showTitle=false&status=done&style=none&title=)我们可以自己创建队列和交换机，不过SpringAMQP还提供了ExchangeBuilder来简化这个过程：
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687181804385-c500bc13-9f81-4071-ad8a-598fa5f57d97.png)
+
+我们可以自己创建队列和交换机，不过SpringAMQP还提供了ExchangeBuilder来简化这个过程：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689945421476-fe44bf9a-d6eb-4f51-af02-374359c8e70b.png)
 而在绑定队列和交换机时，则需要使用BindingBuilder来创建Binding对象：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1689945503733-13d2179c-f586-4de5-b18c-d3b5749f1f96.png)
@@ -1052,7 +1060,8 @@ public void listenTopicQueue2(String msg){
 
 ## 3.9.消息转换器
 Spring的消息发送代码接收的消息体是一个Object：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687183868403-242aa812-a07f-4748-8863-dc5d1e161dc1.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687183652317-82b0319b-03aa-46ed-afbc-373e7a6fa0f1.png)
 而在数据传输时，它会把你发送的消息序列化为字节发送给MQ，接收消息的时候，还会把字节反序列化为Java对象。
 只不过，默认情况下Spring采用的序列化方式是JDK序列化。众所周知，JDK序列化存在下列问题：
 
@@ -1065,8 +1074,11 @@ Spring的消息发送代码接收的消息体是一个Object：
 ### 3.9.1.测试默认转换器
 1）创建测试队列
 首先，我们在consumer服务中声明一个新的配置类：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687184206574-69117533-5b4e-4172-b254-23130023f711.png)
-利用@Bean的方式创建一个队列，![](assets/image-20211104102144275.png#id=PyGPl&originalType=binary&ratio=1&rotation=0&showTitle=false&status=done&style=none&title=)具体代码：
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687183868403-242aa812-a07f-4748-8863-dc5d1e161dc1.png)
+
+
+利用@Bean的方式创建一个队列，具体代码：
 
 ```java
 package com.itheima.consumer.config;
@@ -1088,8 +1100,9 @@ public class MessageConfig {
 注意，这里我们先不要给这个队列添加消费者，我们要查看消息体的格式。
 
 重启consumer服务以后，该队列就会被自动创建出来了：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690339169409-cf6a9ad7-c364-4a26-992d-dd678f53e910.png)
-![](assets/image-20211104102409347.png#id=tPRoz&originalType=binary&ratio=1&rotation=0&showTitle=false&status=done&style=none&title=)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687184033157-c4c8e59e-a2b3-4b2b-9c20-ca3c597e556c.png)
+
 
 2）发送消息
 我们在publisher模块的SpringAmqpTest中新增一个消息发送的代码，发送一个Map对象：
@@ -1106,7 +1119,9 @@ public void testSendMap() throws InterruptedException {
 ```
 
 发送消息后查看控制台：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687184033157-c4c8e59e-a2b3-4b2b-9c20-ca3c597e556c.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687184206574-69117533-5b4e-4172-b254-23130023f711.png)
+
 可以看到消息格式非常不友好。
 
 ### 3.9.2.配置JSON转换器
@@ -1134,11 +1149,13 @@ public MessageConverter messageConverter(){
     return jackson2JsonMessageConverter;
 }
 ```
-消息转换器中添加的messageId可以便于我们将来做幂等性判断。
+消息转换器中添加的`messageId`可以便于我们将来做幂等性判断。
 
 此时，我们到MQ控制台**删除**`object.queue`中的旧的消息。然后再次执行刚才的消息发送的代码，到MQ的控制台查看消息结构：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687183652317-82b0319b-03aa-46ed-afbc-373e7a6fa0f1.png)
-![](assets/image-20211104102831385.png#id=mx45K&originalType=binary&ratio=1&rotation=0&showTitle=false&status=done&style=none&title=)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687245684217-8b401cc5-29e6-4d08-9a9b-4fbe0dffd486.png)
+
+
 
 ### 3.9.3.消费者接收Object
 我们在consumer服务中定义一个新的消费者，publisher是用Map发送，那么消费者也一定要用Map接收，格式如下：
@@ -1186,7 +1203,9 @@ spring:
 
 ## 4.1.接收消息
 在trade-service服务中定义一个消息监听类：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687245684217-8b401cc5-29e6-4d08-9a9b-4fbe0dffd486.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690339169409-cf6a9ad7-c364-4a26-992d-dd678f53e910.png)
+
 其代码如下：
 
 ```java
@@ -1277,8 +1296,6 @@ public void tryPayOrderByBalance(PayOrderDTO payOrderDTO) {
 
 参考资料：
 [Spring AMQP](https://docs.spring.io/spring-amqp/docs/2.4.14/reference/html/#post-processing)
-
-
 
 ## 5.4.改造项目一
 思考一下，项目一中的哪些业务可以由同步方式改为异步方式调用？试着改造一下。
