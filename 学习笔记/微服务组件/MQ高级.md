@@ -59,10 +59,9 @@ docker stop mq
 ```
 然后测试发送一条消息，会发现会每隔1秒重试1次，总共重试了3次。消息发送的超时重试机制配置成功了！
 
-:::warning
+:warning:
 **注意**：当网络不稳定的时候，利用重试机制可以有效提高消息发送的成功率。不过SpringAMQP提供的重试机制是**阻塞式**的重试，也就是说多次重试等待的过程中，当前线程是被阻塞的。
 如果对于业务性能有要求，建议禁用重试机制。如果一定要使用，请合理配置等待时长和重试次数，当然也可以考虑使用异步线程来执行发送消息的代码。
-:::
 
 ## 1.2.生产者确认机制
 一般情况下，只要生产者与MQ之间的网路连接顺畅，基本不会出现发送消息丢失的情况，因此大多数情况下我们无需考虑这种问题。
@@ -74,14 +73,14 @@ docker stop mq
 
 针对上述情况，RabbitMQ提供了生产者消息确认机制，包括`Publisher Confirm`和`Publisher Return`两种。在开启确认机制的情况下，当生产者发送消息给MQ后，MQ会根据消息处理的情况返回不同的**回执**。
 具体如图所示：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687348187394-21a3698a-277a-478b-8cb8-2ee5bc79207f.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690366611659-d5c7f355-7ab1-4eb8-8488-13e1d98843ce.png)
 总结如下：
 
 - 当消息投递到MQ，但是路由失败时，通过**Publisher Return**返回异常信息，同时返回ack的确认信息，代表投递成功
 - 临时消息投递到了MQ，并且入队成功，返回ACK，告知投递成功
 - 持久消息投递到了MQ，并且入队完成持久化，返回ACK ，告知投递成功
 - 其它情况都会返回NACK，告知投递失败
-
 
 其中`ack`和`nack`属于**Publisher Confirm**机制，`ack`是投递成功；`nack`是投递失败。而`return`则属于**Publisher Return**机制。
 默认两种机制都是关闭状态，需要通过配置文件来开启。
@@ -105,7 +104,10 @@ spring:
 
 ### 1.3.2.定义ReturnCallback
 每个`RabbitTemplate`只能配置一个`ReturnCallback`，因此我们可以在配置类中统一设置。我们在publisher模块定义一个配置类：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687348449866-dee08277-6bc9-4463-9cb8-95013e05a6a2.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687341529298-150b401d-67f9-4958-acdb-0d3147b0532b.png)
+
+
 内容如下：
 
 ```java
@@ -144,14 +146,17 @@ public class MqConfig {
 
 ### 1.3.3.定义ConfirmCallback
 由于每个消息发送时的处理逻辑不一定相同，因此ConfirmCallback需要在每次发消息时定义。具体来说，是在调用RabbitTemplate中的convertAndSend方法时，多传递一个参数：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687353601905-9b09c0df-1b03-49e1-95c8-437ef9f3cd81.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687348187394-21a3698a-277a-478b-8cb8-2ee5bc79207f.png)
+
+
 这里的CorrelationData中包含两个核心的东西：
 
 - `id`：消息的唯一标示，MQ对不同的消息的回执以此做判断，避免混淆
 - `SettableListenableFuture`：回执结果的Future对象
 
 将来MQ的回执就会通过这个`Future`来返回，我们可以提前给`CorrelationData`中的`Future`添加回调函数来处理消息回执：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687341529298-150b401d-67f9-4958-acdb-0d3147b0532b.png)
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687348449866-dee08277-6bc9-4463-9cb8-95013e05a6a2.png)
 
 我们新建一个测试，向系统自带的交换机发送消息，并且添加`ConfirmCallback`：
 ```java
@@ -181,19 +186,20 @@ void testPublisherConfirm() {
 }
 ```
 执行结果如下：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690366611659-d5c7f355-7ab1-4eb8-8488-13e1d98843ce.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687351726363-c27337c1-cd6e-497e-96ad-ac55fe4cb9e4.png)
+
 可以看到，由于传递的`RoutingKey`是错误的，路由失败后，触发了`return callback`，同时也收到了ack。
 当我们修改为正确的`RoutingKey`以后，就不会触发`return callback`了，只收到ack。
 而如果连交换机都是错误的，则只会收到nack。
 
-:::warning
+:warning:
 **注意**：
 开启生产者确认比较消耗MQ性能，一般不建议开启。而且大家思考一下触发确认的几种情况：
 
 - 路由失败：一般是因为RoutingKey错误导致，往往是编程导致
 - 交换机名称错误：同样是编程错误导致
-- MQ内部故障：这种需要处理，但概率往往较低。因此只有对消息可靠性要求非常高的业务才需要开启，而且仅仅需要开启ConfirmCallback处理nack就可以了。
-:::
+- MQ内部故障：这种需要处理，但概率往往较低。因此只有对消息可靠性要求非常高的业务才需要开启，而且仅仅需要开启`ConfirmCallback`处理nack就可以了，即只使用confirm机制。
 
 # 2.MQ的可靠性
 消息到达MQ以后，如果MQ不能及时保存，也会导致消息丢失，所以MQ的可靠性也非常重要。
@@ -207,22 +213,24 @@ void testPublisherConfirm() {
 我们以控制台界面为例来说明。
 ### 2.1.1.交换机持久化
 在控制台的`Exchanges`页面，添加交换机时可以配置交换机的`Durability`参数：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687353771968-5c560b86-a1ae-4649-8597-c7ebfeffa9a5.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687353601905-9b09c0df-1b03-49e1-95c8-437ef9f3cd81.png)
 设置为`Durable`就是持久化模式，`Transient`就是临时模式。
 
 ### 2.1.2.队列持久化
 在控制台的Queues页面，添加队列时，同样可以配置队列的`Durability`参数：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687354083723-84971642-712d-42bc-ba65-6e3b3b33758c.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687353771968-5c560b86-a1ae-4649-8597-c7ebfeffa9a5.png)
 除了持久化以外，你可以看到队列还有很多其它参数，有一些我们会在后期学习。
 
 ### 2.1.3.消息持久化
 在控制台发送消息的时候，可以添加很多参数，而消息的持久化是要配置一个`properties`：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687421880071-2a21369f-00b3-481d-a9bb-ce69a346ccc3.png)
 
-:::warning
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687354083723-84971642-712d-42bc-ba65-6e3b3b33758c.png)
+
+:warning:
 **说明**：在开启持久化机制以后，如果同时还开启了生产者确认，那么MQ会在消息持久化以后才发送ACK回执，进一步确保消息的可靠性。
 不过出于性能考虑，为了减少IO次数，发送到MQ的消息并不是逐条持久化到数据库的，而是每隔一段时间批量持久化。一般间隔在100毫秒左右，这就会导致ACK有一定的延迟，因此建议生产者确认全部采用异步方式。
-:::
 
 ## 2.2.LazyQueue
 在默认情况下，RabbitMQ会将接收到的信息保存在内存中以降低消息收发的延迟。但在某些特殊情况下，这会导致消息积压，比如：
@@ -231,7 +239,9 @@ void testPublisherConfirm() {
 - 消息发送量激增，超过了消费者处理速度
 - 消费者处理业务发生阻塞
 
-一旦出现消息堆积问题，RabbitMQ的内存占用就会越来越高，直到触发内存预警上限。此时RabbitMQ会将内存消息刷到磁盘上，这个行为成为`PageOut`. `PageOut`会耗费一段时间，并且会阻塞队列进程。因此在这个过程中RabbitMQ不会再处理新的消息，生产者的所有请求都会被阻塞。
+一旦出现消息堆积问题，RabbitMQ的内存占用就会越来越高，直到触发内存预警上限。此时RabbitMQ会将内存消息刷到磁盘上，这个行为成为`PageOut`. 
+
+`PageOut`会耗费一段时间，并且会阻塞队列进程。因此在这个过程中RabbitMQ不会再处理新的消息，生产者的所有请求都会被阻塞。
 
 为了解决这个问题，从RabbitMQ的3.6.0版本开始，就增加了Lazy Queues的模式，也就是惰性队列。惰性队列的特征如下：
 
@@ -257,7 +267,8 @@ public Queue lazyQueue(){
 }
 ```
 这里是通过`QueueBuilder`的`lazy()`函数配置Lazy模式，底层源码如下：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687490335196-66d14c99-45c2-4113-8a36-94e33c3ce7d5.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687421880071-2a21369f-00b3-481d-a9bb-ce69a346ccc3.png)
 
 当然，我们也可以基于注解来声明队列并设置为Lazy模式：
 ```java
@@ -287,7 +298,8 @@ rabbitmqctl set_policy Lazy "^lazy-queue$" '{"queue-mode":"lazy"}' --apply-to qu
 - `--apply-to queues`：策略的作用对象，是所有的队列
 
 当然，也可以在控制台配置policy，进入在控制台的`Admin`页面，点击`Policies`，即可添加配置：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687489262801-36725872-cc98-470a-ab6b-85cfd9c1b0ce.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687422619364-b0e414b9-55fc-49f2-b7b5-de52b72a9f56.png)
 
 # 3.消费者的可靠性
 当RabbitMQ向消费者投递消息以后，需要知道消费者的处理状态如何。因为消息投递给消费者并不代表就一定被正确消费了，可能出现的故障有很多，比如：
@@ -312,9 +324,9 @@ rabbitmqctl set_policy Lazy "^lazy-queue$" '{"queue-mode":"lazy"}' --apply-to qu
 
 由于消息回执的处理代码比较统一，因此SpringAMQP帮我们实现了消息确认。并允许我们通过配置文件设置ACK处理方式，有三种模式：
 
-- `**none**`：不处理。即消息投递给消费者后立刻ack，消息会立刻从MQ删除。非常不安全，不建议使用
-- `**manual**`：手动模式。需要自己在业务代码中调用api，发送`ack`或`reject`，存在业务入侵，但更灵活
-- `**auto**`：自动模式。SpringAMQP利用AOP对我们的消息处理逻辑做了环绕增强，当业务正常执行时则自动返回`ack`.  当业务出现异常时，根据异常判断返回不同结果：
+- `none`：不处理。即消息投递给消费者后立刻ack，消息会立刻从MQ删除。非常不安全，不建议使用
+- `manual`：手动模式。需要自己在业务代码中调用api，发送`ack`或`reject`，存在业务入侵，但更灵活
+- `auto`：自动模式。SpringAMQP利用AOP对我们的消息处理逻辑做了环绕增强，当业务正常执行时则自动返回`ack`.  当业务出现异常时，根据异常判断返回不同结果：
    - 如果是**业务异常**，会自动返回`nack`；
    - 如果是**消息处理或校验异常**，自动返回`reject`;
 
@@ -364,7 +376,8 @@ spring:
 在异常位置打断点，再次发送消息，程序卡在断点时，可以发现此时消息状态为`unacked`（未确定状态）：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687489262801-36725872-cc98-470a-ab6b-85cfd9c1b0c22e.png)
 放行以后，由于抛出的是**消息转换异常**，因此Spring会自动返回`reject`，所以消息依然会被删除：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687422619364-b0e414b9-55fc-49f2-b7b5-de52b72a9f56.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687490335196-66d14c99-45c2-4113-8a36-94e33c3ce7d5.png)
 
 我们将异常改为RuntimeException类型：
 ```java
@@ -378,9 +391,14 @@ public void listenSimpleQueueMessage(String msg) throws InterruptedException {
 }
 ```
 在异常位置打断点，然后再次发送消息测试，程序卡在断点时，可以发现此时消息状态为`unacked`（未确定状态）：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687490819965-f638194b-f956-4ad3-8cd4-2e03f5e43674.png)放行以后，由于抛出的是业务异常，所以Spring返回`ack`，最终消息恢复至`Ready`状态，并且没有被RabbitMQ删除：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687351726363-c27337c1-cd6e-497e-96ad-ac55fe4cb9e4.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687489262801-36725872-cc98-470a-ab6b-85cfd9c1b0ce.png)
+
+放行以后，由于抛出的是业务异常，所以Spring返回`ack`，最终消息恢复至`Ready`状态，并且没有被RabbitMQ删除：
+
 当我们把配置改为`auto`时，消息处理失败后，会回到RabbitMQ，并重新投递到消费者。
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687490819965-f638194b-f956-4ad3-8cd4-2e03f5e43674.png)
 
 ## 2.2.失败重试机制
 当消费者出现异常后，消息会不断requeue（重入队）到队列，再重新发送给消费者。如果消费者再次执行依然出错，消息会再次requeue到队列，再次投递，直到消息处理成功为止。
@@ -441,6 +459,7 @@ public Binding errorBinding(Queue errorQueue, DirectExchange errorMessageExchang
 ```
 
 2）定义一个RepublishMessageRecoverer，关联队列和交换机
+
 ```java
 @Bean
 public MessageRecoverer republishMessageRecoverer(RabbitTemplate rabbitTemplate){
@@ -487,7 +506,7 @@ public class ErrorMessageConfig {
 ## 2.4.业务幂等性
 何为幂等性？
 **幂等**是一个数学概念，用函数表达式来描述是这样的：`f(x) = f(f(x))`，例如求绝对值函数。
-在程序开发中，则是指同一个业务，执行一次或多次对业务状态的影响是一致的。例如：
+在程序开发中，则是指同一个业务，==执行一次或多次对业务状态的影响是一致的==。例如：
 
 - 根据id删除数据
 - 查询数据
@@ -515,7 +534,7 @@ public class ErrorMessageConfig {
 
 因此，我们必须想办法保证消息处理的幂等性。这里给出两种方案：
 
-- 唯一消息ID
+- 唯一消息ID	
 - 业务状态判断
 
 ### 2.4.1.唯一消息ID
@@ -528,6 +547,7 @@ public class ErrorMessageConfig {
 我们该如何给消息添加唯一ID呢？
 其实很简单，SpringAMQP的MessageConverter自带了MessageID的功能，我们只要开启这个功能即可。
 以Jackson的消息转换器为例：
+
 ```java
 @Bean
 public MessageConverter messageConverter(){
@@ -543,6 +563,8 @@ public MessageConverter messageConverter(){
 业务判断就是基于业务本身的逻辑或状态来判断是否是重复的请求或消息，不同的业务场景判断的思路也不一样。
 例如我们当前案例中，处理消息的业务逻辑是把订单状态从未支付修改为已支付。因此我们就可以在执行业务时判断订单状态是否是未支付，如果不是则证明订单已经被处理过，无需重复处理。
 
+![image-20240523164219227](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240523164219227.png)
+
 相比较而言，消息ID的方案需要改造原有的数据库，所以我更推荐使用业务判断的方案。
 
 以支付修改订单的业务为例，我们需要修改`OrderServiceImpl`中的`markOrderPaySuccess`方法：
@@ -553,7 +575,7 @@ public MessageConverter messageConverter(){
         Order old = getById(orderId);
         // 2.判断订单状态
         if (old == null || old.getStatus() != 1) {
-            // 订单不存在或者订单状态不是1，放弃处理
+            // 订单不存在或者订单状态不是1，放弃处理，状态1表示是为付款状态
             return;
         }
         // 3.尝试更新订单
@@ -592,7 +614,8 @@ UPDATE `order` SET status = ? , pay_time = ? WHERE id = ? AND status = 1
 
 其实思想很简单：既然MQ通知不一定发送到交易服务，那么交易服务就必须自己**主动去查询**支付状态。这样即便支付服务的MQ通知失败，我们依然能通过主动查询来保证订单状态的一致。
 流程如下：
-![](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573175803-41a1c870-93bc-4307-974f-891de1b5a42d.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687521150465-25b54b36-b64a-4b2d-90b7-8dff12fb075b.jpeg)
 
 图中黄色线圈起来的部分就是MQ通知失败后的兜底处理方案，由交易服务自己主动去查询支付状态。
 
@@ -641,7 +664,7 @@ UPDATE `order` SET status = ? , pay_time = ? WHERE id = ? AND status = 1
 - 消息是一个过期消息，超时无人消费
 - 要投递的队列消息满了，无法投递
 
-如果一个队列中的消息已经成为死信，并且这个队列通过`**dead-letter-exchange**`属性指定了一个交换机，那么队列中的死信就会投递到这个交换机中，而这个交换机就称为**死信交换机**（Dead Letter Exchange）。而此时加入有队列与死信交换机绑定，则最终死信就会被投递到这个队列中。
+如果一个队列中的消息已经成为死信，并且这个队列通过`dead-letter-exchange`属性指定了一个交换机，那么队列中的死信就会投递到这个交换机中，而这个交换机就称为**死信交换机**（Dead Letter Exchange）。而此时加入有队列与死信交换机绑定，则最终死信就会被投递到这个队列中。
 
 死信交换机有什么作用呢？
 
@@ -654,28 +677,30 @@ UPDATE `order` SET status = ? , pay_time = ? WHERE id = ? AND status = 1
 
 而最后一种场景，大家设想一下这样的场景：
 如图，有一组绑定的交换机（`ttl.fanout`）和队列（`ttl.queue`）。但是`ttl.queue`没有消费者监听，而是设定了死信交换机`hmall.direct`，而队列`direct.queue1`则与死信交换机绑定，RoutingKey是blue：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687521150465-25b54b36-b64a-4b2d-90b7-8dff12fb075b.jpeg)
+![](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573175803-41a1c870-93bc-4307-974f-891de1b5a42d.png)
 
 假如我们现在发送一条消息到`ttl.fanout`，RoutingKey为blue，并设置消息的**有效期**为5000毫秒：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573747592-4d95dbb1-3f4d-4174-af24-124cb1346a81.png)
-:::warning
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573506181-f0af9da1-0b0b-4cfb-afca-f5febb306cdf.png):warning:
 **注意**：尽管这里的`ttl.fanout`不需要RoutingKey，但是当消息变为死信并投递到死信交换机时，会沿用之前的RoutingKey，这样`hmall.direct`才能正确路由消息。
-:::
 
 消息肯定会被投递到`ttl.queue`之后，由于没有消费者，因此消息无人消费。5秒之后，消息的有效期到期，成为死信：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687611117405-f30b7216-cbef-44fc-a8a9-b62c50ef2a06.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573747592-4d95dbb1-3f4d-4174-af24-124cb1346a81.png)
 死信被再次投递到死信交换机`hmall.direct`，并沿用之前的RoutingKey，也就是`blue`：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573506181-f0af9da1-0b0b-4cfb-afca-f5febb306cdf.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573874094-ebf781c1-6273-474b-b0ed-17243d8370ae.png)
+
 由于`direct.queue1`与`hmall.direct`绑定的key是blue，因此最终消息被成功路由到`direct.queue1`，如果此时有消费者与`direct.queue1`绑定， 也就能成功消费消息了。但此时已经是5秒钟以后了：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687576988700-43b5d4ad-a77c-4463-bea4-4f3c0888ebe5.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687574086294-106fe14b-6652-4783-a6c3-3d722d1f5232.png)
 也就是说，publisher发送了一条消息，但最终consumer在5秒后才收到消息。我们成功实现了**延迟消息**。
 
 ### 4.1.3.总结
-:::warning
+:warning:
 **注意：**
 RabbitMQ的消息过期是基于追溯方式来实现的，也就是说当一个消息的TTL到期以后不一定会被移除或投递到死信交换机，而是在消息恰好处于队首时才会被处理。
 当队列中消息堆积很多的时候，过期消息可能不会被按时处理，因此你设置的TTL时间不一定准确。
-:::
 
 ## 4.2.DelayExchange插件
 基于死信队列虽然可以实现延迟消息，但是太麻烦了。因此RabbitMQ社区提供了一个延迟消息插件来实现相同的效果。
@@ -688,7 +713,7 @@ RabbitMQ的消息过期是基于追溯方式来实现的，也就是说当一个
 由于我们安装的MQ是`3.8`版本，因此这里下载`3.8.17`版本：
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687576610561-71355772-460c-4b7a-bf71-904b40bccdf9.png)
 当然，也可以直接使用课前资料提供好的插件：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687573874094-ebf781c1-6273-474b-b0ed-17243d8370ae.png)
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687611117405-f30b7216-cbef-44fc-a8a9-b62c50ef2a06.png)
 
 ### 4.2.2.安装
 因为我们是基于Docker安装，所以需要先查看RabbitMQ的插件目录对应的数据卷。
@@ -717,7 +742,7 @@ docker volume inspect mq-plugins
 docker exec -it mq rabbitmq-plugins enable rabbitmq_delayed_message_exchange
 ```
 运行结果如下：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687574086294-106fe14b-6652-4783-a6c3-3d722d1f5232.png)
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687576988700-43b5d4ad-a77c-4463-bea4-4f3c0888ebe5.png)
 
 ### 4.2.3.声明延迟交换机
 基于注解方式：
@@ -785,17 +810,15 @@ void testPublisherDelayMessage() {
 }
 ```
 
-
-:::warning
+:warning:
 **注意：**
 延迟消息插件内部会维护一个本地数据库表，同时使用Elang Timers功能实现计时。如果消息的延迟时间设置较长，可能会导致堆积的延迟消息非常多，会带来较大的CPU开销，同时延迟消息的时间会存在误差。
 因此，**不建议设置延迟时间过长的延迟消息**。
-:::
 
 
 ## 4.5.订单状态同步问题
 接下来，我们就在交易服务中利用延迟消息实现订单支付状态的同步。其大概思路如下：
-![](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687593452790-58e296b7-0761-40f6-b4be-9c19bff9cd3e.jpeg)
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690343275577-b0f99b4a-40e2-40cf-8da2-11f0dfbd7d7c.jpeg)
 
 假如订单超时支付时间为30分钟，理论上说我们应该在下单时发送一条延迟消息，延迟时间为30分钟。这样就可以在接收到消息时检验订单支付状态，关闭未支付订单。
 但是大多数情况下用户支付都会在1分钟内完成，我们发送的消息却要在MQ中停留30分钟，额外消耗了MQ的资源。因此，我们最好多检测几次订单支付状态，而不是在最后第30分钟才检测。
@@ -803,10 +826,15 @@ void testPublisherDelayMessage() {
 这样就可以有效避免对MQ资源的浪费了。
 
 优化后的实现思路如下：
-![](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687593919687-52eb9aa6-6f80-4b49-ba32-bb608018e333.png)
+
+![](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687593452790-58e296b7-0761-40f6-b4be-9c19bff9cd3e.jpeg)
 
 由于我们要多次发送延迟消息，因此需要先定义一个记录消息延迟时间的消息体，处于通用性考虑，我们将其定义到`hm-common`模块下：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690343275577-b0f99b4a-40e2-40cf-8da2-11f0dfbd7d7c.jpeg)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687593306116-2a41b7c0-064c-463f-b109-fa05db8609e8.png)
+
+
+
 代码如下：
 
 ```java
@@ -857,7 +885,9 @@ public class MultiDelayMessage<T> {
 
 ### 4.5.1.定义常量
 无论是消息发送还是接收都是在交易服务完成，因此我们在`trade-service`中定义一个常量类，用于记录交换机、队列、RoutingKey等常量：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687593306116-2a41b7c0-064c-463f-b109-fa05db8609e8.png)
+
+![](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687593919687-52eb9aa6-6f80-4b49-ba32-bb608018e333.png)
+
 内容如下：
 
 ```java
@@ -888,7 +918,8 @@ spring:
 这里只添加一些基础配置，至于生产者确认，消费者确认配置则由微服务根据业务自己决定。
 
 在`trade-service`模块添加共享配置：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690343618777-60200e66-3734-439b-91fe-db8ea3eba148.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687595291593-378450c1-ef00-4cbf-9be8-235d1eea8e7c.png)
 
 ### 4.5.3.改造下单业务
 接下来，我们改造下单业务，在下单完成后，发送延迟消息，查询支付状态。
@@ -905,12 +936,15 @@ spring:
 
 2）改造下单业务
 修改`trade-service`模块的`com.hmall.trade.service.impl.OrderServiceImpl`类的`createOrder`方法，添加消息发送的代码：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690352506454-23b445b7-3a34-458e-bba2-47528a06ea65.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687595921876-005c46d9-4278-411b-bfc1-c5e545949cd5.png)
 
 ### 4.5.4.编写查询支付状态接口
 由于MQ消息处理时需要查询支付状态，因此我们要在pay-service模块定义一个这样的接口，并提供对应的FeignClient.
 首先，在hm-api模块定义三个类：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687595291593-378450c1-ef00-4cbf-9be8-235d1eea8e7c.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690352506454-23b445b7-3a34-458e-bba2-47528a06ea65.png)
+
 说明：
 
 - PayOrderDTO：支付单的数据传输实体
@@ -1027,7 +1061,9 @@ public PayOrderDTO queryPayOrderByBizOrderNo(@PathVariable("id") Long id){
 
 ### 4.5.5.消息监听
 接下来，我们在trader-service编写一个监听器，监听延迟消息，查询订单支付状态：
-![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1687595921876-005c46d9-4278-411b-bfc1-c5e545949cd5.png)
+
+![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690343618777-60200e66-3734-439b-91fe-db8ea3eba148.png)
+
 代码如下：
 
 ```java
