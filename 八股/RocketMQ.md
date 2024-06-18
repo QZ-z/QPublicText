@@ -225,6 +225,101 @@ producer.setRetryTimesWhenSendFailed(5);
 
 ## [RocketMQ 如何实现分布式事务？](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#rocketmq-如何实现分布式事务)
 
+:question:
+
 在 `RocketMQ` 中使用的是 **事务消息加上事务反查机制** 来解决分布式事务问题的
 
 ![image-20240614153837752](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240614153837752.png)
+
+第一步发送的half消息，在事务提交之前，对消费者不可见
+
+> 具体做法：
+>
+> - 如果消息是 half 消息，将备份原消息的主题与消息消费队列，然后 **改变主题** 为 RMQ_SYS_TRANS_HALF_TOPIC。
+> - 由于消费组未订阅该主题，故消费端无法消费 half 类型的消息，**然后 RocketMQ 会开启一个定时任务，从 Topic 为 RMQ_SYS_TRANS_HALF_TOPIC 中拉取消息进行消费**，根据生产者组获取一个服务提供者发送回查事务状态请求，根据事务状态来决定是提交或回滚消息。
+
+B系统中的操作和A已经不相关了，此次分布式事务范围是【本地事务和存储消息到消息队列】
+
+# [如何解决消息堆积问题？](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#如何解决消息堆积问题)
+
+1. 降级限流
+2. 消费者消费过慢，检查是否出现大量消费错误，或查看是否有锁资源不释放等问题
+3. 增加消费实例
+
+> 一个队列只会被一个消费者消费，增加实例的同时也要增加主题的队列数
+
+# [什么是回溯消费？](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#什么是回溯消费)
+
+回溯消费是指 `Consumer` 已经消费成功的消息，由于业务上需求需要重新消费，在`RocketMQ` 中， `Broker` 在向`Consumer` 投递成功消息后，**消息仍然需要保留**
+
+场景：`Consumer` 系统故障，恢复后需要重新消费 1 小时前的数据
+
+`RocketMQ` 支持按照时间回溯消费，时间维度精确到毫秒
+
+# [RocketMQ 如何保证高性能读写](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#rocketmq-如何保证高性能读写)
+
+## [传统 IO 方式](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#传统-io-方式)
+
+![image-20240618163733854](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240618163733854.png)
+
+整个过程发生了 4 次上下文切换和 4 次数据的拷贝，这在高并发场景下肯定会严重影响读写性能
+
+## [零拷贝技术](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#零拷贝技术)
+
+RocketMQ 内部主要是使用基于 mmap 实现的零拷贝(其实就是调用上述提到的 api)
+
+### [mmap](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#mmap)
+
+mmap（memory map）是一种内存映射文件的方法，即将一个文件或者其它对象映射到进程的地址空间
+
+简单地说就是内核缓冲区和应用缓冲区共享
+
+![image-20240618163836342](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240618163836342.png)
+
+发生 4 次上下文切换和 3 次 IO 拷贝操作
+
+### [sendfile](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#sendfile)
+
+![image-20240618163847988](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240618163847988.png)
+
+发生了 3 次拷贝和两次切换
+
+缺点：没文件的读写操作，直接将文件数据放到目标缓冲区，不可感知
+
+# [RocketMQ 的刷盘机制](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#rocketmq-的刷盘机制)
+
+## [同步刷盘和异步刷盘](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#同步刷盘和异步刷盘)
+
+![image-20240618164358452](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240618164358452.png)
+
+一般地，**异步刷盘只有在 `Broker` 意外宕机的时候会丢失部分数据**
+
+## [同步复制和异步复制](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#同步复制和异步复制)
+
+同步刷盘和异步刷盘主要是在单节点层面复制是在主从节点之间【主节点返回消息给客户端的同时是否需要同步从节点】
+
+- 同步复制：也叫 “同步双写”，也就是说，**只有消息同步双写到主从节点上时才返回写入成功** 。
+- 异步复制：**消息写入主节点之后就直接返回写入成功** 
+
+**异步复制会不会也像异步刷盘那样影响消息的可靠性呢？**
+
+不会，复制主要和可用性有关，刷盘影响可靠性
+
+异步复制的时候，主节点没发完挂了，生产者不能发给主节点了，但是消费者可以消费切换到的从节点的，暂时消息不一致，主节点恢复之后，能够继续消费不同步的消息
+
+**由顺序消费引发的复制问题**
+
+保证顺序消费时，一种良好的方式是：在MQ层面采用普通顺序，只保证一个消费队列的消息是有序的，在业务层面将需要有序的一批数据放在同一个队列中
+
+如果一个业务的有序数据只在一个节点存在，那么当这个节点挂了，其他节点是无法代替这个节点的，启用其他节点，但是业务层的队列逻辑已经没用，所以会随机乱放
+
+解决方法：用了 `Dledger` 解决这个问题。他要求在写入消息的时候，要求**至少消息复制到半数以上的节点之后**，才给客⼾端返回写⼊成功，并且它是⽀持通过选举来动态切换主节点的
+
+> 文档开头架构图中已经反应了这点
+
+## [存储机制](https://javaguide.cn/high-performance/message-queue/rocketmq-questions.html#存储机制)
+
+:stopwatch:待看
+
+![image-20240618165955123](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240618165955123.png)
+
