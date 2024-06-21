@@ -648,7 +648,7 @@ Undo log销毁：undo log在事务执行时产生，事务提交时，并不会�
 
 Undo log存储：undo log采用段的方式进行管理和记录，存放在前面介绍的 rollback segment回滚段中，内部包含1024个undo log segment。
 
-> ndo log 和数据页的刷盘策略是一样的，都需要通过 redo log 保证持久化。
+> undo log 和数据页的刷盘策略是一样的，都需要通过 redo log 保证持久化。
 >
 > buffer pool 中有 undo 页，对 undo 页的修改也都会记录到 redo log。redo log 会每秒刷盘，提交事务时也会刷盘，数据页和 undo 页都是靠这个机制保证持久化的。
 
