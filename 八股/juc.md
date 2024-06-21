@@ -416,9 +416,9 @@ synchronized(this) {
 
 **`synchronized` 同步语句块的实现使用的是 `monitorenter` 和 `monitorexit` 指令**，能够保证锁在同步代码块代码正常执行以及出现异常的这两种情况下都能被正确释放
 
-- ** `monitorenter` 指令指向同步代码块的开始位置**
+- `monitorenter` 指令指向同步代码块的开始位置
 
-- **`monitorexit` 指令则指明同步代码块的结束位置**
+- `monitorexit` 指令则指明同步代码块的结束位置
 
 当执行 `monitorenter` 指令时，线程试图获取锁也就是获取 **对象监视器 `monitor`** 的持有权。
 
@@ -436,7 +436,7 @@ synchronized(this) {
 
 如果是实例方法，JVM 会尝试获取实例对象的锁。如果是静态方法，JVM 会尝试获取当前 class 的锁
 
-:warning: 两者的本质都是对对象监视器 monitor 的获取。**
+:warning: 两者的本质都是对对象监视器 monitor 的获取。
 
 ## [JDK1.6 之后的 synchronized 底层做了哪些优化？锁升级原理了解吗？](https://javaguide.cn/java/concurrent/java-concurrent-questions-02.html#jdk1-6-之后的-synchronized-底层做了哪些优化-锁升级原理了解吗)
 
@@ -695,6 +695,8 @@ ThreadLocal中主要涉及`get`、`set`和`initialValue()`方法。`get`、`set`
 
 ## [如果不允许丢弃任务任务，应该选择哪个拒绝策略？](https://javaguide.cn/java/concurrent/java-concurrent-questions-03.html#如果不允许丢弃任务任务-应该选择哪个拒绝策略)
 
+`CallerRunsPolicy`源码
+
 ```java
 public static class CallerRunsPolicy implements RejectedExecutionHandler {
 
@@ -751,7 +753,9 @@ public static class CallerRunsPolicy implements RejectedExecutionHandler {
 - **使用`execute()`提交任务**：当任务通过`execute()`提交到线程池并在执行过程中抛出异常时，如果这个异常没有在任务内被捕获，那么该异常会导致当前线程终止，并且异常会被打印到控制台或日志文件中。线程池会检测到这种线程终止，并创建一个新线程来替换它，从而保持配置的线程数不变。
 - **使用`submit()`提交任务**：对于通过`submit()`提交的任务，如果在任务执行中发生异常，这个异常不会直接打印出来。相反，异常会被封装在由`submit()`返回的`Future`对象中。当调用`Future.get()`方法时，可以捕获到一个`ExecutionException`。在这种情况下，线程不会因为异常而终止，它会继续存在于线程池中，准备执行后续的任务
 
-`submit()`更灵活的处理错误，`excute()`适用于不需要关注执行结果的场景。
+使用`execute()`时，未捕获异常导致线程终止，线程池创建新线程替代；使用`submit()`时，异常被封装在`Future`中，线程继续复用。
+
+这种设计允许`submit()`提供更灵活的错误处理机制，因为它允许调用者决定如何处理异常，而`execute()`则适用于那些不需要关注执行结果的场景。
 
 ## [如何给线程池命名？](https://javaguide.cn/java/concurrent/java-concurrent-questions-03.html#如何给线程池命名)
 
@@ -838,6 +842,8 @@ public interface Future<V> {
 `FutureTask` 有两个构造函数，可传入 `Callable` 或者 `Runnable` 对象。实际上，传入 `Runnable` 对象也会在方法内部转换为`Callable` 对象
 
 总结：`FutureTask`相当于对`Callable` 进行了封装，管理着任务执行的情况，存储了 `Callable` 的 `call` 方法（相当于Runnable的run方法）的任务执行结
+
+[一个例子](https://github.com/QZ-z/QPublicText/blob/79390b57760eed2d26854d87e583e6c9d5a44002/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/javase/19%E5%A4%9A%E7%BA%BF%E7%A8%8B.md#%E5%AE%9E%E7%8E%B0%E7%BA%BF%E7%A8%8B%E7%9A%84%E7%AC%AC%E4%B8%89%E7%A7%8D%E6%96%B9%E5%BC%8F)
 
 ## [CompletableFuture 类有什么用？](https://javaguide.cn/java/concurrent/java-concurrent-questions-03.html#completablefuture-类有什么用)
 
@@ -950,7 +956,28 @@ public Semaphore(int permits, boolean fair) {
 
  例如，读取处理 6 个文件，这 6 个任务都是没有执行顺序依赖的任务，但是我们需要返回给用户的时候将这几个文件的处理的结果进行统计整理。
 
-可以使用Java8 的 `CompletableFuture` ，它提供了很多对多线程友好的方法，使用它可以很方便地为我们编写多线程程序，什么异步、串行、并行或者等待所有线程执行完任务什么的都非常方便。
+改进：可以使用Java8 的 `CompletableFuture` ，它提供了很多对多线程友好的方法，使用它可以很方便地为我们编写多线程程序，什么异步、串行、并行或者等待所有线程执行完任务什么的都非常方便。
+
+```java
+CompletableFuture<Void> task1 =
+    CompletableFuture.supplyAsync(()->{
+        //自定义业务操作
+    });
+......
+CompletableFuture<Void> task6 =
+    CompletableFuture.supplyAsync(()->{
+    //自定义业务操作
+    });
+......
+CompletableFuture<Void> headerFuture=CompletableFuture.allOf(task1,.....,task6);
+
+try {
+    headerFuture.join();
+} catch (Exception ex) {
+    //......
+}
+System.out.println("all done. ");
+```
 
 ## [CyclicBarrier (循环栅栏)有什么用？](https://javaguide.cn/java/concurrent/java-concurrent-questions-03.html#cyclicbarrier-有什么用)
 
