@@ -1,3 +1,5 @@
+[toc]
+
 # Spirng IOC
 
 是一种思想，不是spring独有的
