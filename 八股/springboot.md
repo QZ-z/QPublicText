@@ -74,6 +74,8 @@ Spring Boot （spring-boot-starter-web）使用 Tomcat 作为默认的嵌入式 
 
 # **8. Spring Boot 的自动配置是如何实现的?**
 
+[扩展阅读](https://javaguide.cn/system-design/framework/spring/spring-boot-auto-assembly-principles.html#%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA-starter)
+
 这个是因为`@SpringBootApplication`注解的原因，主要是其中包括的`@EnableAutoConfiguration`注解，它是自动装配的关键
 
 `@EnableAutoConfiguration`注解源码：
@@ -364,4 +366,224 @@ System.out.println(webSite.getUrl());//https://javaguide.cn/
 ```
 
 # **13. Spring Boot 加载配置文件的优先级了解么？**
+
+[拓展阅读](https://www.cnblogs.com/hans-hu/p/16247235.html)
+
+`SpringBoot` 应用程序在启动时会遵循以下顺序进行加载配置文件
+
+1. 类路径下的配置文件
+2. 类路径内`config`子目录的配置文件
+3. 项目根目录下的配置文件
+4. 项目根目录下`config`子目录的配置文件
+
+```text
+. project-sample  
+├── config  
+│   ├── application.yml （4）  
+│   └── src/main/resources  
+|   │   ├── application.yml （1）  
+|   │   └── config  
+|   |   │   ├── application.yml （2）  
+├── application.yml （3）  
+  
+注：src/main/resources下的配置文件在项目编译时，会放在target/classes下  
+```
+
+**启动时加载配置文件顺序：`1 -> 2 -> 3 -> 4`，优先级 `4 > 3 > 2 > 1`**
+
+注意：
+
+- 如果在`IDEA`中是多 `module` 项目，3 和 4 的位置是指的是项目根目录下的位置
+- 当 .properties 和 .yml 文件同时存在时，.properties会失效，.yml会起作用。
+
+# 14.常用的 Bean 映射工具有哪些？
+
+
+我们经常在代码中会对一个数据结构封装成DO、SDO、DTO、VO等，而这些Bean中的大部分属性都是一样的，所以使用属性拷贝类工具可以帮助我们节省大量的 set 和 get 操作。
+
+常用的 Bean 映射工具有：Spring BeanUtils、Apache BeanUtils、MapStruct、ModelMapper、Dozer、Orika、JMapper 。
+
+由于 Apache BeanUtils 、Dozer 、ModelMapper 性能太差，所以不建议使用。MapStruct 性能更好而且使用起来比较灵活，是一个比较不错的选择。
+
+> 其他还有Hutool工具包中的BeanUtil类
+
+# 15.Spring Boot 如何监控系统实际运行状况？
+
+我们可以使用 Spring Boot Actuator 来对 Spring Boot 项目进行简单的监控。
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+集成了这个模块之后，你的 Spring Boot 应用程序就自带了一些开箱即用的获取程序运行时的内部状态信息的 API。
+
+比如通过 GET 方法访问 /health 接口，你就可以获取应用程序的健康指标。
+
+# **16. Spring Boot 如何做请求参数校验？**
+
+Spring Boot 程序做请求参数校验的话只需要spring-boot-starter-web 依赖就够了，它的子依赖包含了我们所需要的东西。
+
+ 
+
+## 16.2校验注解
+
+JSR 提供的校验注解:
+
+- @Null 被注释的元素必须为 null
+- @NotNull 被注释的元素必须不为 null
+- @AssertTrue 被注释的元素必须为 true
+
+- @AssertFalse 被注释的元素必须为 false
+
+- @Min(value) 被注释的元素必须是一个数字，其值必须大于等于指定的最小值
+
+- @Max(value) 被注释的元素必须是一个数字，其值必须小于等于指定的最大值
+
+- @DecimalMin(value) 被注释的元素必须是一个数字，其值必须大于等于指定的最小值
+
+- @DecimalMax(value) 被注释的元素必须是一个数字，其值必须小于等于指定的最大值
+
+- @Size(max=, min=) 被注释的元素的大小必须在指定的范围内
+
+- @Digits (integer, fraction) 被注释的元素必须是一个数字，其值必须在可接受的范围内
+
+- @Past 被注释的元素必须是一个过去的日期
+
+- @Future 被注释的元素必须是一个将来的日期
+
+- @Pattern(regex=,flag=) 被注释的元素必须符合指定的正则表达式
+
+Hibernate Validator 提供的校验注解：
+
+- @NotBlank(message =) 验证字符串非 null，且长度必须大于 0
+
+- @Email 被注释的元素必须是电子邮箱地址
+
+- @Length(min=,max=) 被注释的字符串的大小必须在指定的范围内
+
+- @NotEmpty 被注释的字符串的必须非空
+
+- @Range(min=,max=,message=) 被注释的元素必须在合适的范围内
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Person {
+
+    @NotNull(message = "classId 不能为空")
+    private String classId;
+
+    @Size(max = 33)
+    @NotNull(message = "name 不能为空")
+    private String name;
+
+    @Pattern(regexp = "((^Man$|^Woman$|^UGM$))", message = "sex 值不在可选范围")
+    @NotNull(message = "sex 不能为空")
+    private String sex;
+
+    @Email(message = "email 格式不正确")
+    @NotNull(message = "email 不能为空")
+    private String email;
+
+}
+```
+
+## 16.2. 验证请求体(RequestBody)
+
+我们在需要验证的参数上加上了`@Valid `注解，如果验证失败，它将抛出`MethodArgumentNotValidException`。默认情况下，Spring 会将此异常转换为 HTTP Status 400（错误请求）。
+
+```java
+@RestController
+@RequestMapping("/api")
+public class PersonController {
+
+    @PostMapping("/person")
+    public ResponseEntity<Person> getPerson(@RequestBody @Valid Person person) {
+        return ResponseEntity.ok().body(person);
+    }
+}
+```
+
+## 16.3. 验证请求参数(Path Variables 和 Request Parameters)
+
+一定一定不要忘记在类上加上 Validated 注解了，这个参数可以告诉 Spring 去校验方法参数。
+
+```java
+@RestController
+@RequestMapping("/api")
+@Validated
+public class PersonController {
+
+    @GetMapping("/person/{id}")
+    public ResponseEntity<Integer> getPersonByID(@Valid @PathVariable("id") @Max(value = 5,message = "超过 id 的范围了") Integer id) {
+        return ResponseEntity.ok().body(id);
+    }
+
+    @PutMapping("/person")
+    public ResponseEntity<String> getPersonByName(@Valid @RequestParam("name") @Size(max = 6,message = "超过 name 的范围了") String name) {
+        return ResponseEntity.ok().body(name);
+    }
+}
+```
+
+# **17. 如何使用 Spring Boot 实现全局异常处理？**
+
+Spring Boot 应用程序可以借助 @RestControllerAdvice 和 @ExceptionHandler 实现全局统一异常处理。
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(BusinessException.class)
+    public Result businessExceptionHandler(HttpServletRequest request, BusinessException e){
+        ...
+        return Result.faild(e.getCode(), e.getMessage());
+    }
+    ...
+}
+```
+
+`@RestControllerAdvice `是 Spring 4.3 中引入的，是`@ControllerAdvice` 和 `@ResponseBody` 的结合体，你也可以将  `@RestControllerAdvice` 替换为`@ControllerAdvice`和 ` @ResponseBody`。这样的话，如果响应内容不是数据的话，就不需要在方法上添加 `@ResponseBody `，更加灵活。
+
+```java
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(BusinessException.class)
+    @ResponseBody  
+    public Result businessExceptionHandler(HttpServletRequest request, BusinessException e){
+        ...
+        return Result.fail(e.getCode(), e.getMessage());
+    }
+    ...
+}
+```
+
+> 八股spring部分中有更详细的部分
+
+# 18.Spring Boot 中如何实现定时任务 ?
+
+
+我们使用 `@Scheduled` 注解就能很方便地创建一个定时任务。
+
+```java
+@Component
+public class ScheduledTasks {
+    private static final Logger log = LoggerFactory.getLogger(ScheduledTasks.class);
+    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+
+    /**
+     * fixedRate：固定速率执行。每5秒执行一次。
+     */
+    @Scheduled(fixedRate = 5000)
+    public void reportCurrentTimeWithFixedRate() {
+        log.info("Current Thread : {}", Thread.currentThread().getName());
+        log.info("Fixed Rate Task : The time is now {}", dateFormat.format(new Date()));
+    }
+}
+```
+
+单纯依靠 `@Scheduled` 注解 还不行，我们还需要在 SpringBoot 中我们只需要在启动类上加上`@EnableScheduling `注解，这样才可以启动定时任务。`@EnableScheduling` 注解的作用是发现注解 `@Scheduled` 的任务并在后台执行该任务。
 
