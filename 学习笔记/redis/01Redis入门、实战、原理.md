@@ -2152,7 +2152,9 @@ Write Behind Caching Pattern ：调用者只操作缓存，其他线程去异步
 
 ![1653323595206](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1653323595206.png)
 
+左图中，线程1写，线程2读
 
+右图中，线程1读，线程2写
 
 ### 2.4 实现商铺和缓存与数据库双写一致
 
@@ -2214,8 +2216,6 @@ Write Behind Caching Pattern ：调用者只操作缓存，其他线程去异步
 现在的逻辑中：如果这个数据不存在，我们不会返回404 ，还是会把这个数据写入到Redis中，并且将value设置为空，欧当再次发起查询时，我们如果发现命中之后，判断这个value是否是null，如果是null，则是之前写入的数据，证明是缓存穿透数据，如果不是，则直接返回数据。
 
 ![1653327884526](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1653327124561.png)
-
-![1653327124561](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1653357522914.png)
 
 **小总结：**
 
@@ -3679,17 +3679,19 @@ Lock{
 
 ```lua
 "if (redis.call('exists', KEYS[1]) == 0) then " +
-                  "redis.call('hset', KEYS[1], ARGV[2], 1); " +
-                  "redis.call('pexpire', KEYS[1], ARGV[1]); " +
-                  "return nil; " +
-              "end; " +
-              "if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then " +
-                  "redis.call('hincrby', KEYS[1], ARGV[2], 1); " +
-                  "redis.call('pexpire', KEYS[1], ARGV[1]); " +
-                  "return nil; " +
-              "end; " +
-              "return redis.call('pttl', KEYS[1]);"
+"redis.call('hset', KEYS[1], ARGV[2], 1); " +
+"redis.call('pexpire', KEYS[1], ARGV[1]); " +
+"return nil; " +
+"end; " +
+"if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then " +
+"redis.call('hincrby', KEYS[1], ARGV[2], 1); " +
+"redis.call('pexpire', KEYS[1], ARGV[1]); " +
+"return nil; " +
+"end; " +
+"return redis.call('pttl', KEYS[1]);"
 ```
+
+![image-20240709233907252](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240709233907252.png)
 
 ![1653562234886](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1653548087334.png)
 
@@ -3722,7 +3724,7 @@ if (ttl == null) {
 }
 ```
 
-接下来会有一个条件分支，因为lock方法有重载方法，一个是带参数，一个是不带参数，如果带带参数传入的值是-1，如果传入参数，则leaseTime是他本身，所以如果传入了参数，此时leaseTime != -1 则会进去抢锁，抢锁的逻辑就是之前说的那三个逻辑
+接下来会有一个条件分支，因为lock方法有重载方法，一个是带参数，一个是不带参数，如果带参数传入的值是-1，如果传入参数，则leaseTime是他本身，所以如果传入了参数，此时leaseTime != -1 则会进去抢锁，抢锁的逻辑就是之前说的那三个逻辑
 
 ```java
 if (leaseTime != -1) {
@@ -3800,6 +3802,8 @@ private void renewExpiration() {
 ```
 
 ![image-20240520185937262](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240520185937262.png)
+
+> 其中订阅使用的是`redis`的`publish`和`subscribe`
 
 ### 5.5 分布式锁-redission锁的MutiLock原理
 
@@ -5442,6 +5446,8 @@ Redis构建了一种新的字符串结构，称为简单动态字符串（Simple
 Redis是C语言实现的，其中SDS是一个结构体，源码如下：
 
 ![1653984822363](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1653984624671.png)
+
+> flag字段的作用，对于不同长度的字符串，len和alloc需要的位数不一样。eg.可以使用`unit8_t`或者`uint16_t`等
 
 例如，一个包含字符串“name”的sds结构如下：
 
