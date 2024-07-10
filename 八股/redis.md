@@ -668,6 +668,8 @@ AOF 校验机制是 Redis 在启动时对 AOF 文件进行检查，以判断文�
 
 Redis 6.0 版本之后引入了多线程来处理网络请求（提高网络 IO 读写性能）。
 
+:clock1:待具体完善
+
 ## [Redis 单线程模型了解吗？](https://javaguide.cn/database/redis/redis-questions-01.html#redis-单线程模型了解吗)
 
 **Redis 基于 Reactor 模式设计开发了一套高效的事件处理模型** （Netty 的线程模型也基于 Reactor 模式，Reactor 模式不愧是高性能 IO 的基石），这套事件处理模型对应的是 Redis 中的文件事件处理器（file event handler）。由于文件事件处理器（file event handler）是单线程方式运行的，所以我们一般都说 Redis 是单线程模型。
