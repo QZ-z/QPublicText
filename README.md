@@ -11,4 +11,5 @@ TODO
 1. rocketMQ中存储机制部分
 1. ~~框架八股~~
 1. Netty如何管理堆外内存，javaguide指北中有
+1. 面试自我介绍稿
 
