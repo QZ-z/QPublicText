@@ -261,7 +261,7 @@ public static int[] copyOf(int[] original, int newLength) {
 4. `SynchronousQueue`：同步队列，是一种不存储元素的阻塞队列。每个插入操作都必须等待对应的删除操作，反之删除操作也必须等待插入操作。因此，`SynchronousQueue`通常用于线程之间的直接传递数据。
 5. `DelayQueue`：延迟队列，其中的元素只有到了其指定的延迟时间，才能够从队列中出队
 
-> 开发中用的都不多，了解就行，和线程池有关
+> 开发中用的都不多，了解就行。`LinkedBlockingQueue` 、`SynchronousQueue`和线程池有关
 
 ## [ArrayBlockingQueue 和 LinkedBlockingQueue 有什么区别？](https://javaguide.cn/java/collection/java-collection-questions-01.html#arrayblockingqueue-和-linkedblockingqueue-有什么区别)
 
