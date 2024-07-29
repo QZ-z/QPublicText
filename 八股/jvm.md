@@ -637,6 +637,11 @@ Minor GC会把需要eden中和From需要回收的对象回收，把没有回收�
 
 ## 垃圾回收器
 
+JDK 默认垃圾收集器（使用 `java -XX:+PrintCommandLineFlags -version` 命令查看）：
+
+- JDK 8：Parallel Scavenge（新生代）+ Parallel Old（老年代）
+- JDK 9 ~ JDK20: G1
+
 ![image-20240519215456414](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240519215456414.png)
 
 ### 年轻代-Serial垃圾回收器
@@ -717,7 +722,7 @@ ParNew垃圾回收器本质上是对Serial在多CPU下的优化，使用多线�
 
 ### 老年代- CMS(Concurrent Mark Sweep)垃圾回收器
 
-CMS垃圾回收器关注的是系统的暂停时间，允许用户线程和垃圾回收线程在某些步骤中同时执行，减少了用户线程的等待时间。
+CMS垃圾回收器关注的是【系统的暂停时间】，允许用户线程和垃圾回收线程在某些步骤中同时执行，减少了用户线程的等待时间。
 
 参数：`XX:+UseConcMarkSweepGC`
 

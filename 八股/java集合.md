@@ -134,7 +134,7 @@
 
 如果新容量仍然小于最小需求容量 `minCapacity`，则将新容量设置为 `minCapacity`
 
-如果新容量超过 `MAX_ARRAY_SIZE`，则调用 `hugeCapacity` 方法进行处理。
+如果新容量超过 `MAX_ARRAY_SIZE`，则调用 `hugeCapacity` 方法进行处理，比较 `minCapacity `和 `MAX_ARRAY_SIZE`，如果`minCapacity`大于最大容量，则新容量则为`Integer.MAX_VALUE`，否则，新容量大小则为 `MAX_ARRAY_SIZE `即为 `Integer.MAX_VALUE - 8`。
 
 ## [`System.arraycopy()` 和 `Arrays.copyOf()`方法](https://javaguide.cn/java/collection/arraylist-source-code.html#system-arraycopy-和-arrays-copyof-方法)
 
@@ -147,6 +147,29 @@
 `arraycopy()` 需要目标数组，将原数组拷贝到你自己定义的数组里或者原数组，而且可以选择拷贝的起点和长度以及放入新数组中的位置
 
  `copyOf()` 是系统自动在内部新建一个数组，并返回该数组
+
+```java
+/**
+    *   复制数组
+    * @param src 源数组
+    * @param srcPos 源数组中的起始位置
+    * @param dest 目标数组
+    * @param destPos 目标数组中的起始位置
+    * @param length 要复制的数组元素的数量
+    */
+public static native void arraycopy(Object src,  int  srcPos,
+                                    Object dest, int destPos,
+                                    int length);
+
+public static int[] copyOf(int[] original, int newLength) {
+    // 申请一个新的数组
+    int[] copy = new int[newLength];
+    // 调用System.arraycopy,将源数组中的数据进行拷贝,并返回新的数组
+    System.arraycopy(original, 0, copy, 0,
+                     Math.min(original.length, newLength));
+    return copy;
+}
+```
 
 ## [`ensureCapacity`方法](https://javaguide.cn/java/collection/arraylist-source-code.html#ensurecapacity方法)
 
@@ -204,6 +227,10 @@
 
 - `ArrayDeque` 也可以用于实现栈
 
+- `ArrayDeque`的数组长度是2的幂次方
+
+> 扩展阅读：[ArrayDeque原理详解](https://juejin.cn/post/6973280919918477320)
+
 ## [说一说 PriorityQueue](https://javaguide.cn/java/collection/java-collection-questions-01.html#说一说-priorityqueue)
 
 `PriorityQueue` 是在 JDK1.5 中被引入的, 其与 `Queue` 的区别在于元素出队顺序是与优先级相关的，即总是优先级最高的元素先出队。
@@ -234,7 +261,7 @@
 4. `SynchronousQueue`：同步队列，是一种不存储元素的阻塞队列。每个插入操作都必须等待对应的删除操作，反之删除操作也必须等待插入操作。因此，`SynchronousQueue`通常用于线程之间的直接传递数据。
 5. `DelayQueue`：延迟队列，其中的元素只有到了其指定的延迟时间，才能够从队列中出队
 
-> 开发中用的都不多，了解就行
+> 开发中用的都不多，了解就行，和线程池有关
 
 ## [ArrayBlockingQueue 和 LinkedBlockingQueue 有什么区别？](https://javaguide.cn/java/collection/java-collection-questions-01.html#arrayblockingqueue-和-linkedblockingqueue-有什么区别)
 
@@ -243,6 +270,7 @@
 - 底层实现：`ArrayBlockingQueue` 基于数组实现，而 `LinkedBlockingQueue` 基于链表实现。
 - 是否有界：`ArrayBlockingQueue` 是有界队列，必须在创建时指定容量大小。`LinkedBlockingQueue` 创建时可以不指定容量大小，默认是`Integer.MAX_VALUE`，也就是无界的。但也可以指定队列大小，从而成为有界的。
 - 锁是否分离： `ArrayBlockingQueue`中的锁是没有分离的，即生产和消费用的是同一个锁；`LinkedBlockingQueue`中的锁是分离的，即生产用的是`putLock`，消费是`takeLock`，这样可以防止生产者和消费者线程之间的锁争夺。
+- 锁的公平性：`ArrayBlockingQueue`支持公平和非公平锁，`LinkedBlockingQueue`仅支持非公平锁
 - 内存占用：`ArrayBlockingQueue` 需要提前分配数组内存，而 `LinkedBlockingQueue` 则是动态分配链表节点内存。这意味着，`ArrayBlockingQueue` 在创建时就会占用一定的内存空间，且往往申请的内存比实际所用的内存更大，而`LinkedBlockingQueue` 则是根据元素的增加而逐渐占用内存空间。
 
 # [Map（重要）](https://javaguide.cn/java/collection/java-collection-questions-02.html#map-重要)
@@ -320,7 +348,7 @@ JDK1.8 之前 `HashMap` 底层是 **数组和链表** 结合在一起使用也�
 
 HashMap 通过 key 的 `hashcode` 经过扰动函数处理过后得到 hash 值，然后通过 `(n - 1) & hash` 判断当前元素存放的位置（这里的 n 指的是数组的长度）
 
-- 如果当前位置存在元素的话，就判断该元素与要存入的元素的 hash 值以及 key 是否相同
+- 如果当前位置存在元素的话，就判断该元素与要存入的元素 key 是否相同
 - 如果相同的话，直接覆盖，不相同就通过拉链法解决冲突
 
 扰动函数指HashMap中的`hash`方法，是为了防止实现比较差的`hashCode()`方法造成碰撞次数过多
@@ -330,6 +358,10 @@ HashMap 通过 key 的 `hashcode` 经过扰动函数处理过后得到 hash 值�
 ### [JDK1.8 之后](https://javaguide.cn/java/collection/java-collection-questions-02.html#jdk1-8-之后)
 
 解决哈希冲突时发生变化，当链表长度大于阈值（默认为 8）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间
+
+下图未包含抓换红黑树之前的判断
+
+![image-20240729162536386](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240729162536386.png)
 
 ## [HashMap 的长度为什么是 2 的幂次方](https://javaguide.cn/java/collection/java-collection-questions-02.html#hashmap-的长度为什么是-2-的幂次方)
 
