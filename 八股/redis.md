@@ -1494,7 +1494,7 @@ repl_backlog_buffer 的信息在 Replication 块里，你可以通过 INFO repli
 
 ### [Redis 4.0 PSYNC2.0 方案]()
 
-优化PSYNC，发生主从切换，依然有可能进行增量同步而不是必须全量同步
+优化PSYNC，发生主从切换，依然有可能进行增量同步而不是必须全量同步。因为主从切换，slave变为master，replid会重新生成，偏移量会重置。
 
 放弃使用`runid`，使用`replid`和`replid2`
 
