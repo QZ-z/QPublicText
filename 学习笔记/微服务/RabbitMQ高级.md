@@ -77,7 +77,7 @@ docker stop mq
 ![image.png](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/1690366611659-d5c7f355-7ab1-4eb8-8488-13e1d98843ce.png)
 总结如下：
 
-- 当消息投递到MQ，但是路由失败时，通过**Publisher Return**返回异常信息，同时返回ack的确认信息，代表投递成功
+- 当消息投递到MQ，但是路由失败时，通过**Publisher Return**返回异常信息，同时返回ack的确认信息，代表投递成功	
 - 临时消息投递到了MQ，并且入队成功，返回ACK，告知投递成功
 - 持久消息投递到了MQ，并且入队完成持久化，返回ACK ，告知投递成功
 - 其它情况都会返回NACK，告知投递失败

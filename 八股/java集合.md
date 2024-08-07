@@ -359,7 +359,7 @@ HashMap 通过 key 的 `hashcode` 经过扰动函数处理过后得到 hash 值�
 
 解决哈希冲突时发生变化，当链表长度大于阈值（默认为 8）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间
 
-下图未包含抓换红黑树之前的判断
+下图未包含转换红黑树之前对数组长度的判断
 
 ![image-20240729162536386](http://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240729162536386.png)
 
@@ -521,3 +521,8 @@ synchronizedList(List<T> list)//返回指定列表支持的同步（线程安全
 synchronizedMap(Map<K,V> m) //返回由指定映射支持的同步（线程安全的）Map。
 synchronizedSet(Set<T> s) //返回指定 set 支持的同步（线程安全的）set。
 ```
+
+# :clock1:
+
+1. hashmap数组是怎么扩容的，红黑树什么时候会退化
+   1. 节点数小于6，或者红黑树的root为空，root的left和right为空，root的left或right为空
