@@ -621,6 +621,16 @@ AOF重写会造成大量写入操作，避免对正常请求造成影响，将AO
 - `auto-aof-rewrite-min-size`：如果 AOF 文件大小小于该值，则不会触发 AOF 重写。默认值为 64 MB;
 - `auto-aof-rewrite-percentage`：执行 AOF 重写时，当前 AOF 大小（aof_current_size）和上一次重写时 AOF 大小（aof_base_size）的比值。如果当前 AOF 文件大小增加了这个百分比值，将触发 AOF 重写。将此值设置为 0 将禁用自动 AOF 重写。默认值为 100。
 
+### AOF重写的过程
+
+![image-20240811183235136](https://pig-test-qz.oss-cn-beijing.aliyuncs.com/img/image-20240811183235136.png)
+
+1. bgwriteaof触发重写，判断是否当前有bgsave或bgwriteaf在执⾏，如果有则等待命令结束 后执⾏。
+2. 主进程fork⼀个⼦进程执⾏重写操作，保证主进程不会阻塞。 
+3.  ⼦进程遍历Redis内存中数据到临时⽂件，同时，客户端的写请求同时写⼊aof_buf缓冲区 和aof_rewrite_buf重写缓冲区中。保证原AOF⽂件完整性以及新的AOF⽂件⽣成期间新的数 据修改动作不会丢失。 
+4. ⼦进程写完新的AOF⽂件后，向主进程发送信号，主进程更新统计信息，并且把 aof_rewrite_buf中的数据写⼊到新的AOF⽂件中，使得新的 AOF ⽂件保存的数据库状态与 现有的数据库状态⼀致
+5.  使⽤新的AOF⽂件覆盖旧的AOF⽂件，完成AOF的重写。
+
 ### [AOF 校验机制了解吗？](#aof-校验机制了解吗)
 
 AOF 校验机制是 Redis 在启动时对 AOF 文件进行检查，以判断文件是否完整，是否有损坏或者丢失的数据。这个机制的原理其实非常简单，就是通过使用一种叫做 **校验和（checksum）** 的数字来验证 AOF 文件。
