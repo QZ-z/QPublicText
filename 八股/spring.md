@@ -220,6 +220,10 @@ public class LoggingAspect implements Ordered {
 }
 ```
 
+## 使用例子
+
+spirng中的全局异常管理和事务
+
 # [Spring MVC](https://javaguide.cn/system-design/framework/spring/spring-knowledge-and-questions-summary.html#spring-mvc)
 
 ## [说说自己对于 Spring MVC 了解?](https://javaguide.cn/system-design/framework/spring/spring-knowledge-and-questions-summary.html#说说自己对于-spring-mvc-了解)
@@ -356,6 +360,12 @@ Spring 使用工厂模式可以通过 `BeanFactory` 或 `ApplicationContext` 创
 2. `FileSystemXmlApplication`：从文件系统中的 XML 文件载入上下文定义信息。
 3. `XmlWebApplicationContext`：从 Web 系统中的 XML 文件载入上下文定义信息
 
+在Spring Boot项目中，通常使用`SpringApplication.run()`方法来启动应用，它内部会创建一个`ApplicationContext`实例。
+
+```java
+SpringApplication.run(MyApp.class, args);
+```
+
 ## [单例设计模式](https://javaguide.cn/system-design/framework/spring/spring-design-patterns-summary.html#单例设计模式)
 
 **使用单例模式的好处** :
@@ -441,6 +451,8 @@ public class TemplateImpl extends Template {
 ```
 
 Spring 中 `JdbcTemplate`、`HibernateTemplate` 等以 Template 结尾的对数据库操作的类，它们就使用到了模板模式。一般情况下，我们都是使用继承的方式来实现模板模式，但是 Spring 并没有使用这种方式，而是使用 Callback 模式与模板方法模式配合，既达到了代码复用的效果，同时增加了灵活性。
+
+[示例](##spring模板方法例子)
 
 ## [观察者模式](https://javaguide.cn/system-design/framework/spring/spring-design-patterns-summary.html#观察者模式)
 
@@ -545,6 +557,8 @@ if(mappedHandler.getHandler() instanceof MultiActionController){
 Spring 中配置 DataSource 的时候，DataSource 可能是不同的数据库和数据源。我们能否根据客户的需求在少修改原有类的代码下动态切换不同的数据源？这个时候就要用到装饰者模式(这一点我自己还没太理解具体原理)。Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`。这些类基本上都是动态地给一个对象添加一些额外的职责。
 
 # [Spring 的循环依赖](https://javaguide.cn/system-design/framework/spring/spring-knowledge-and-questions-summary.html#spring-的循环依赖)
+
+循环依赖是指 Bean 对象循环引用，是两个或多个 Bean 之间相互持有对方的引用，例如 CircularDependencyA → CircularDependencyB → CircularDependencyA
 
 ## [Spring 循环依赖了解吗，怎么解决？](https://javaguide.cn/system-design/framework/spring/spring-knowledge-and-questions-summary.html#spring-循环依赖了解吗-怎么解决)
 
@@ -1741,7 +1755,7 @@ public class DemoPublisher {
 
 当调用 `DemoPublisher` 的 `publish()` 方法的时候，比如 `demoPublisher.publish("你好")` ，控制台就会打印出:`接收到的信息是：你好` 。
 
-:question:不是通过`ApplicationEventPublisher`发布么，怎么是使用`applicationContext`的方法
+不是通过`ApplicationEventPublisher`发布么，怎么是使用`applicationContext`的方法：`ApplicationContext`实现了`ApplicationEventPublisher`接口
 
 ## 事务传播行为例子
 
@@ -1819,3 +1833,46 @@ Class B {
 
 如果 `bMethod()` 回滚的话，`aMethod()`不会回滚。如果 `aMethod()` 回滚的话，`bMethod()`会回滚。
 
+## spring模板方法例子
+
+gpt生成
+
+```java
+import org.springframework.jdbc.core.JdbcTemplate;
+
+public class JdbcDemo {
+
+private final JdbcTemplate jdbcTemplate;
+
+public JdbcDemo(JdbcTemplate jdbcTemplate) {
+	this.jdbcTemplate = jdbcTemplate;
+}
+
+public void update(String sql, Object... args) {
+	jdbcTemplate.update(sql, args);
+}
+
+public int queryForInt(String sql, Object... args) {
+	return jdbcTemplate.queryForObject(sql, Integer.class, args);
+}
+public void executeWithCallback(String sql, JdbcCallback callback) {
+	jdbcTemplate.execute(sql, (StatementCallback<Void>) stmt -> {
+        // 执行一些预处理
+        callback.beforeExecute(stmt);
+        stmt.execute(sql);
+        // 执行一些后处理
+        callback.afterExecute(stmt);
+        return null;
+		});
+	}
+}
+
+interface JdbcCallback {
+    void beforeExecute(Statement stmt);
+    void afterExecute(Statement stmt);
+}
+```
+
+在这个示例中，`JdbcTemplate`提供了一系列的方法来执行数据库操作，如`update`、`queryForObject`等。这些方法内部实现了连接数据库、执行SQL语句、处理结果集等通用逻辑，这就是模板方法模式的应用。
+
+而`executeWithCallback`方法则允许用户通过`JdbcCallback`接口来定义一些自定义的逻辑，例如在执行SQL语句之前或之后做一些额外的处理。这就是Callback模式的应用
