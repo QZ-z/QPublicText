@@ -33,7 +33,7 @@ Java 线程采用的是一对一的线程模型，也就是一个 Java 线程对
 
 ## [线程创建]()
 
-`Thread`类、实现`Runnable`接口、实现`Callable`接口、使用线程池、使用`CompletableFuture`类等等
+继承`Thread`类、实现`Runnable`接口、实现`Callable`接口、使用线程池、使用`CompletableFuture`类等等
 
 但严格来说，只有`new Thread().start()`，其他方法都依赖于这个
 
@@ -627,7 +627,7 @@ ThreadLocal中主要涉及`get`、`set`和`initialValue()`方法。`get`、`set`
 
 所以，如果 `ThreadLocal` 没有被外部强引用的情况下，在垃圾回收的时候，key 会被清理掉，而 value 不会被清理掉。`ThreadLocalMap` 中就会出现 key 为 null 的 Entry。假如我们不做任何措施的话，value 永远无法被 GC 回收，这个时候就可能会产生内存泄露。
 
-`ThreadLocalMap` 实现中已经考虑了这种情况，在调用 `set()`、`get()`、`remove()` 方法的时候，会清理掉 key 为 null 的记录。使用完 `ThreadLocal`方法后最好手动调用`remove()`方法（remove方法就是移除掉threadLocals中键为当前ThreadLocal的键值对）
+`ThreadLocalMap` 实现中已经考虑了这种情况，在调用 `set()`、`get()`、`remove()` 方法的时候，会清理掉 key 为 null 的记录。使用完 `ThreadLocal`方法后最好手动调用`remove()`方法（remove方法就是移除掉threadLocals中当前线程ThreadLocal的键值对）
 
 > 弱引用不管空间够不够，都会在GC扫描的时候被回收
 >
